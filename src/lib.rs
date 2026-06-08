@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod banner;
 pub mod cli;
+pub mod errors;
 pub mod fs_guard;
 pub mod listing;
 pub mod tls;
@@ -78,14 +79,23 @@ async fn serve_or_list(State(state): State<AppState>, req: Request) -> Response 
     {
         return match listing::render_listing(&dir, &url_path, state.upload) {
             Ok(html) => Html(html).into_response(),
-            Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "500").into_response(),
+            Err(_) => errors::error_page(StatusCode::INTERNAL_SERVER_ERROR),
         };
     }
 
     // Files (and not-found) go through ServeDir.
     let serve = ServeDir::new(state.root.as_path());
     match serve.oneshot(req).await {
-        Ok(resp) => resp.into_response(),
-        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "500").into_response(),
+        Ok(resp) => {
+            // Re-skin any error status (404, 405, ...) from ServeDir with our
+            // styled error page; pass successful file responses through as-is.
+            let status = resp.status();
+            if status.is_client_error() || status.is_server_error() {
+                errors::error_page(status)
+            } else {
+                resp.into_response()
+            }
+        }
+        Err(_) => errors::error_page(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }

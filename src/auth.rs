@@ -1,7 +1,6 @@
 use axum::{
-    body::Body,
     extract::{Request, State},
-    http::{StatusCode, header},
+    http::{HeaderValue, StatusCode, header},
     middleware::Next,
     response::Response,
 };
@@ -9,6 +8,7 @@ use base64::{Engine, engine::general_purpose::STANDARD};
 use subtle::ConstantTimeEq;
 
 use crate::cli::Auth;
+use crate::errors::error_page;
 
 /// Verify an `Authorization: Basic ...` header against expected creds in
 /// constant time. Returns false for any malformed/missing/incorrect input.
@@ -43,11 +43,14 @@ pub async fn require_auth(State(creds): State<Auth>, req: Request, next: Next) -
     if ok {
         next.run(req).await
     } else {
-        Response::builder()
-            .status(StatusCode::UNAUTHORIZED)
-            .header(header::WWW_AUTHENTICATE, "Basic realm=\"serve\"")
-            .body(Body::from("401 Unauthorized"))
-            .unwrap()
+        // Styled 401 page, but keep the WWW-Authenticate header so browsers
+        // still present the Basic auth prompt.
+        let mut resp = error_page(StatusCode::UNAUTHORIZED);
+        resp.headers_mut().insert(
+            header::WWW_AUTHENTICATE,
+            HeaderValue::from_static("Basic realm=\"serve\""),
+        );
+        resp
     }
 }
 

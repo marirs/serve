@@ -60,6 +60,24 @@ fn rejects_traversal() {
 }
 
 #[test]
+fn missing_file_returns_styled_html_404() {
+    let dir = tempfile::tempdir().unwrap();
+    let addr = spawn_server(dir.path().to_path_buf(), false);
+
+    let resp = reqwest::blocking::get(format!("http://{addr}/nope.txt")).unwrap();
+    assert_eq!(resp.status().as_u16(), 404);
+    let ctype = resp
+        .headers()
+        .get("content-type")
+        .map(|v| v.to_str().unwrap().to_string())
+        .unwrap_or_default();
+    assert!(ctype.starts_with("text/html"), "got content-type {ctype}");
+    let body = resp.text().unwrap();
+    assert!(body.contains("404"));
+    assert!(body.contains("Not Found"));
+}
+
+#[test]
 fn upload_roundtrip() {
     let dir = tempfile::tempdir().unwrap();
     let addr = spawn_server(dir.path().to_path_buf(), true);
