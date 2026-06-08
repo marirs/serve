@@ -1,0 +1,46 @@
+[package]
+name = "serve"
+version = "0.1.0"
+edition = "2024"
+authors = ["Sriram <marirs@gmail.com>"]
+description = "Single-binary HTTP(S) file server for the current folder"
+license = "MIT"
+
+[lib]
+name = "serve"
+path = "src/lib.rs"
+
+[[bin]]
+name = "serve"
+path = "src/main.rs"
+
+[dependencies]
+axum = { version = "0.8", features = ["multipart"] }
+axum-server = { version = "0.8", features = ["tls-rustls"] }
+tokio = { version = "1", features = ["full"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["fs", "trace"] }
+clap = { version = "4", features = ["derive"] }
+# rustls with the ring provider keeps the TLS stack pure-Rust (no OpenSSL, no
+# aws-lc C build). axum-server re-exports rustls config building.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rcgen = "0.14"
+qrcode = "0.14"
+subtle = "2"
+base64 = "0.22"
+local-ip-address = "0.6"
+humansize = "2"
+time = { version = "0.3", features = ["formatting"] }
+tracing-subscriber = "0.3"
+
+[dev-dependencies]
+# default-features = false drops reqwest's native-tls/OpenSSL backend; we use
+# rustls instead so the whole project builds without OpenSSL.
+# HTTP-only in tests (no TLS), so no TLS backend feature is needed — this keeps
+# both OpenSSL and aws-lc out of the build entirely.
+reqwest = { version = "0.13", default-features = false, features = ["multipart", "blocking"] }
+tempfile = "3"
+
+[profile.release]
+strip = true
+lto = true
